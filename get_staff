@@ -1,0 +1,221 @@
+function exploreclass(oid='1',custid='333',pname='นาย ไก่ ไข่ทอง',quantity=1) { //ถ้าในเห็นคำว่า คะน้าหมูกรอบ ฟังก์ชั้นจะทำงาน
+  var sheeturl = 'https://docs.google.com/spreadsheets/d/1qa0y_65KWaQ_As40hsLQ8Y-b8malI9j0r5rJklGQXVQ/edit?usp=sharing'//เชื่อมต่อ sheet with apps script from link 
+  var sheetname = 'พนักงาน'//ตรวจสอบชื่อชีทว่าชื่อตาราง สินค้า หรือเปล่า
+  var psheet = gspandas.gsdataframe(sheeturl,sheetname) //ตัวแปร psheet เพื่อเก็บข้อมูล gspandas
+  var currentval = parseInt(psheet.getvalue('ชื่อพนักงาน',pname,'ชื่อเล่น'),10)//current รับค่าชื่อเล่นของสินค้า
+  psheet.updatevalue('ชื่อพนักงาน',pname,'ชื่อเล่น',currentval-quantity)//ลบชื่อเล่นสินค้า ตามลูกค้าซื้อ
+  var pinfo = psheet.getrowdict('ชื่อพนักงาน',pname)[0]//ดึงข้อมูลสินค้าที่ถูกลดแล้ว
+  var trx = [Date(Date.now()).toString(),oid,custid,pinfo['อายุ'],pinfo['ชื่อพนักงาน'],pinfo['เบอร์โทร'],quantity]//รายการซื้อ
+
+  var sheetname = 'ออเดอร์'//ตรวจสอบชีทว่าชื่อตาราง ออเดอร์ หรือเปล่า
+  var osheet = gspandas.gsdataframe(sheeturl,sheetname)//ตัวแปร osheet เพื่อเก็บข้อมูล gspandas
+  osheet.sheet.appendRow(trx)//เพิ่มข้อมูลรายการซื้อลงในบรรทัด
+}
+
+function getproductdata(category='พนักงาน'){//ถ้าในเห็นคำว่า อาหารคาว ฟังก์ชั้นจะทำงาน
+  var sheeturl = 'https://docs.google.com/spreadsheets/d/1qa0y_65KWaQ_As40hsLQ8Y-b8malI9j0r5rJklGQXVQ/edit?usp=sharing'//เชื่อมต่อ sheet with apps script from link 
+  var sheetname = 'พนักงาน'//ชื่อชีทที่เก็บข้อมูล สินค้า
+  var psheet = gspandas.gsdataframe(sheeturl,sheetname) //ตัวแปร psheet เพื่อเก็บข้อมูล gspandas
+  var pinfo = psheet.getrowdict('ตำแหน่ง',category) // ดึงข้อมูลสินค้าที่อยู่ในตำแหน่งที่ระบุ
+  Logger.log(pinfo) // ล็อกข้อมูลที่ได้เพื่อตรวจสอบใน Log 
+  return pinfo // ส่งข้อมูลสินค้าที่ได้
+}
+
+function genproductflex(category,ncol=3){//คอลัมน์ที่ใช้แสดงข้อมูลคือ 3 คอลัมน์
+  var pdata = getproductdata(category)// ดึงข้อมูลสินค้าจาก getproductdata
+  var pflex = getmultipleflex(pdata,ncol)// จัดรูปแบบข้อมูลสินค้า
+  Logger.log(pflex)// ล็อกข้อมูลเพื่อตรวจสอบ
+  return pflex//ส่ง pflex
+}
+
+function getproductflex(pname, pimage, pprice, altText = 'This is a Flex Message') {
+  // สร้าง template ของ Flex Message ในรูปแบบของ Carousel
+  var flextemplate = {
+    "type": "carousel",
+    "contents": [
+      {
+        "type": "bubble",
+        "size": "giga",
+        "hero": {
+          "type": "image",
+          "size": "full",
+          "aspectRatio": "20:13",
+          "aspectMode": "cover",
+          "url": pimage
+        },
+        "body": {
+          "type": "box",
+          "layout": "vertical",
+          "spacing": "sm",
+          "contents": [
+            {
+              "type": "text",
+              "text": pname,
+              "wrap": true,
+              "weight": "bold",
+              "size": "xl"
+            },
+            {
+              "type": "box",
+              "layout": "baseline",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": ' เบอร์โทรติดต่อ ' + pprice,
+                  "wrap": true,
+                  "weight": "bold",
+                  "size": "xl",
+                  "flex": 0
+                }
+              ]
+            }
+          ]
+        },
+        "footer": {
+          "type": "box",
+          "layout": "vertical",
+          "spacing": "sm",
+          "contents": [
+            {
+              "type": "text",
+              "text": "เพิ่มรายการ",
+              "wrap": true,
+              "style": "link"
+            }
+          ],
+          // ลบส่วน action ทั้งหมดหรือให้มีค่าว่าง
+          "action": null
+        }
+      }
+    ]
+  };
+  var lineres = {};
+  lineres['type'] = 'flex';
+  lineres['altText'] = altText;
+  lineres['contents'] = flextemplate;
+
+  var lr = {
+    "line_payload": [lineres],
+    "response_type": "object"
+  };
+
+  return lr;
+}
+
+
+
+
+function doGet(request){
+ // เปลี่ยน URL ของ Spread Sheet ตามต้องการ
+ var category = request.parameter.category
+ var ncol = request.parameter.ncol
+ // Logger.log(pname) - ถูก comment ออกไป, ไม่จำเป็นต้องใช้ในการทำงาน
+  // เรียกใช้ฟังก์ชัน genproductflex ด้วย category และ ncol ที่ระบุ
+ var result = genproductflex(category,ncol)
+ // Logger.log(jo) - ถูก comment ออกไป, ไม่จำเป็นต้องใช้ในการทำงาน
+  // แปลงผลลัพธ์เป็น JSON format
+ result = JSON.stringify(result);
+ // ส่งผลลัพธ์เป็น JSON
+ return ContentService.createTextOutput(result).setMimeType(ContentService.MimeType.JSON); 
+}
+
+function getmenuflex(mimage,mname,mprice){//ฟังก์ชันเพื่อแสดงข้อมูลสินค้า mimage,mname,mprice
+  // สร้าง template ของ Flex Message ในรูปแบบของ Carousel
+    var flextemplate = 
+    {
+      "type": "bubble",
+      "size": "nano",
+      "hero": {
+        "type": "image",
+        "url": mimage,
+        "size": "full",
+        "aspectMode": "cover",
+        "aspectRatio": "320:213",
+        "action": {
+          "type": "message",
+          "label": "action",
+          "text": mname
+        }
+      },
+      "body": {
+        "type": "box",
+        "layout": "vertical",
+        "contents": [
+          {
+            "type": "text",
+            "text": mname,
+            "weight": "regular",
+            "size": "xxs",
+            "wrap": true,
+            "margin": "none",
+            "contents": []
+          },
+          {
+            "type": "text",
+            "text": "เบอร์  " + mprice,
+            "size": "xxs"
+          }
+        ],
+        "spacing": "none",
+        "paddingAll": "sm"
+      }
+    }
+
+return flextemplate//ส่งค่า flextemplate
+}
+
+function getrowmenu(mlist){//ฟังก์ชั้นเพื่อรับค่า mlist
+  var mltemp = []//สร้างตัวแปรไว้เก็บค่าลิซ
+  for (let m in mlist){ //วนลูปผ่านรายการเมนูทั้งหมดในลิสต์
+    let mname = mlist[m]['menuname'] //รายการ
+    let mprice = mlist[m]['menuprice'] //รายการ
+    let mimage = mlist[m]['menuimage'] //รายการ
+    var mtemp = getmenuflex(mimage,mname,mprice) // เรียกใช้ฟังก์ชัน getmenuflex เพื่อสร้าง Flex Message สำหรับแต่ละรายการเมนู
+    mltemp.push(mtemp)//เก็บข้อมูลลงใน mltemp
+    
+  }
+  return mltemp //ส่งค่า mltemp
+}
+
+
+function getmultipleflex(mlist,ncol=3) {//คอลัมน์ที่ใช้แสดงข้อมูลคือ 3 คอลัมน์
+  
+  let nrow = Math.floor(mlist.length/ncol)// คำนวณจำนวนแถวต่อหน้า
+
+  Logger.log(ncol)
+  Logger.log(nrow)
+  let lpayloadList = []// ลิสต์ที่เก็บข้อมูลทั้งหมด
+  for (i = 0; i < nrow; i++){ // วนลูปทุกรายการเมนู
+    let mltemp = [] // ลิสต์ที่เก็บ Flex Message ของแต่ละแถว
+    for (j=0; j< ncol; j++){// วนลูปเพื่อสร้าง Flex Message สำหรับแต่ละคอลัมน์
+      let ind = i*ncol + j// คำนวณดัชนีของรายการเมนู
+      let mname = mlist[ind]['ชื่อพนักงาน']
+      let mprice = mlist[ind]['เบอร์โทร']
+      let mimage = mlist[ind]['รูปภาพ']
+      var mtemp = getmenuflex(mimage,mname,mprice)// เรียกใช้ getmenuflex เพื่อสร้างะรายการเมนู
+      mltemp.push(mtemp)// เก็บ Flex Message ลงในลิสต์
+    }
+    
+    var flextemplate = {// สร้าง Flex Message ของ Carousel สำหรับแถวนั้น
+    "type": "carousel",
+    "contents": mltemp
+    }
+
+    var lineres = {}// สร้าง object สำหรับ LINE Messenger
+    lineres['type'] = 'flex'
+    lineres['altText'] = 'This is Flex message'
+    lineres['contents'] = flextemplate
+    lpayloadList.push(lineres)// เก็บ object ลงในลิสต์
+
+
+  }
+
+  var lr = {// สร้างข้อมูลที่ LINE Messenger ต้องการเพื่อแสดงผล
+  "line_payload": lpayloadList,
+  "response_type": "object"
+  }
+  Logger.log(lr)
+  return lr// ส่งข้อมูลที่ LINE Messenger ต้องการเพื่อแสดงผล
+}
+
+
